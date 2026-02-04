@@ -209,41 +209,44 @@ If it's NOT an incident question, be friendly and helpful. Mention that you're h
     if (!preCheck.isIncident) {
         return {
             isGeneralQuery: true,
-            response: {
-                objective: "",
-                onGround: preCheck.generalResponse
-            }
+            message: preCheck.generalResponse
         };
     }
 
     // Otherwise, proceed with incident classification
     const systemPrompt = `
-You are an incident response classifier for Kala Pola art fair.
+You are an incident response advisor for Kala Pola art fair.
 
-Your task is to analyze incident descriptions and determine the appropriate response strategy.
+Your task is to analyze the incident and provide ONE IMMEDIATE, FLEXIBLE, and ACTIONABLE message that tells them exactly what to do.
 
-STEP 1: Read the incident description carefully
-STEP 2: Match it to the closest scenario in Table 1 to determine Likelihood and Impact levels
-STEP 3: Look up the corresponding response in Table 2 using those Likelihood and Impact levels
-STEP 4: Return the EXACT "objective" and "onGround" text from that cell in Table 2
+CONTEXT: You have access to scenario classification tables (Table 1) and response guidelines (Table 2) as background knowledge. Use these internally to assess the situation's likelihood and impact, but DO NOT simply quote them.
+
+INSTRUCTIONS:
+1. Analyze the incident description
+2. Assess the severity (likelihood and impact)
+3. Generate ONE SINGLE UNIFIED MESSAGE that:
+   - Tells them EXACTLY what to do right now
+   - Is SPECIFIC to this exact situation - not generic
+   - Is natural and conversational - not bureaucratic
+   - Is concise but complete (2-4 sentences)
+   - Combines WHY and HOW in one cohesive response
 
 Return your response in this JSON format:
 {
   "likelihood": "Low/Medium/High",
   "impact": "Low/Medium/High",
-  "response": {
-    "objective": "exact objective text from Table 2",
-    "onGround": "exact on-ground response text from Table 2"
-  }
+  "message": "One single unified response telling them exactly what to do in this situation"
 }
 
-Here are the reference tables:
+REFERENCE TABLES (use as background knowledge only):
 
 TABLE 1 - SCENARIO CLASSIFICATION:
 ${JSON.stringify(TABLE_1, null, 2)}
 
 TABLE 2 - RESPONSE GUIDELINES:
 ${JSON.stringify(TABLE_2, null, 2)}
+
+Remember: Provide ONE response that's immediate, flexible, and situation-specific. Don't just copy table text.
 `.trim();
 
     const result = await callGeminiJSON(systemPrompt, incidentDescription);

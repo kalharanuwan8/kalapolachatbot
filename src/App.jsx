@@ -33,7 +33,8 @@ export default function App() {
       // Add AI response
       setMessages(prev => [...prev, {
         type: "assistant",
-        data: analysis.response
+        text: analysis.message || analysis.response?.onGround,
+        isGeneralQuery: analysis.isGeneralQuery
       }]);
     } catch (e) {
       setMessages(prev => [...prev, {
@@ -88,38 +89,9 @@ export default function App() {
               {msg.type === "assistant" && (
                 <div className="flex justify-start">
                   <div className="bg-white rounded-2xl rounded-tl-sm px-5 py-4 max-w-xl shadow-md border border-gray-100 transform transition-all duration-200 hover:scale-[1.02] hover:shadow-lg">
-                    {msg.data && msg.data.objective ? (
-                      // Incident response with objective and action
-                      <div className="space-y-4">
-                        <div>
-                          <div className="flex items-center gap-2 mb-2">
-                            <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
-                            <span className="text-xs font-semibold text-purple-600 uppercase tracking-wide">
-                              Objective
-                            </span>
-                          </div>
-                          <p className="text-gray-800 leading-relaxed">
-                            {msg.data.objective}
-                          </p>
-                        </div>
-                        <div className="border-t border-gray-100 pt-4">
-                          <div className="flex items-center gap-2 mb-2">
-                            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                            <span className="text-xs font-semibold text-blue-600 uppercase tracking-wide">
-                              On-ground Action
-                            </span>
-                          </div>
-                          <p className="text-gray-800 leading-relaxed">
-                            {msg.data.onGround}
-                          </p>
-                        </div>
-                      </div>
-                    ) : (
-                      // General conversational response
-                      <p className="text-gray-800 leading-relaxed">
-                        {msg.data.onGround}
-                      </p>
-                    )}
+                    <p className="text-gray-800 leading-relaxed">
+                      {msg.text}
+                    </p>
                   </div>
                 </div>
               )}
