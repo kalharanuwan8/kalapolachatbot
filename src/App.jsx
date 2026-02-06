@@ -37,9 +37,26 @@ export default function App() {
         isGeneralQuery: analysis.isGeneralQuery
       }]);
     } catch (e) {
+      // Display user-friendly error messages
+      let errorMessage = "Something went wrong. Please try again.";
+      
+      if (e.message) {
+        // Use the error message if it's already user-friendly
+        if (e.message.includes("having trouble processing") ||
+            e.message.includes("Rate limit") ||
+            e.message.includes("Missing VITE_GEMINI_API_KEY") ||
+            e.message.includes("encountered an issue")) {
+          errorMessage = e.message;
+        } else if (e.message.includes("JSON") || e.message.includes("parse")) {
+          errorMessage = "I'm having trouble processing the response. Please try rephrasing your question or try again in a moment.";
+        } else if (e.message.includes("fetch") || e.message.includes("network")) {
+          errorMessage = "Network error. Please check your connection and try again.";
+        }
+      }
+      
       setMessages(prev => [...prev, {
         type: "error",
-        text: e.message || "Unknown error"
+        text: errorMessage
       }]);
     } finally {
       setBusy(false);
