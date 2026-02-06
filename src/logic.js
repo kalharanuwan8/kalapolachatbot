@@ -174,19 +174,41 @@ async function callGeminiJSON(systemPrompt, userPrompt) {
     }
 
     const data = await response.json();
-    const responseText = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    let responseText = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
     if (!responseText) {
         throw new Error("No response received from Gemini API");
     }
 
-    return JSON.parse(responseText);
+    // Try to parse JSON with error handling
+    try {
+        return JSON.parse(responseText);
+    } catch (parseError) {
+        // Attempt to fix common JSON issues
+        try {
+            // Remove any markdown code blocks if present
+            responseText = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+            
+            // Try to extract JSON from the response if it's embedded in text
+            const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                responseText = jsonMatch[0];
+            }
+            
+            // Try parsing again
+            return JSON.parse(responseText);
+        } catch (secondError) {
+            // If still failing, provide a user-friendly error
+            throw new Error("I'm having trouble processing the response. Please try rephrasing your question or try again in a moment.");
+        }
+    }
 }
 
 // --- Main Analysis Function ---
 export async function analyzeIncident(incidentDescription) {
-    // First, check if this is actually an incident question
-    const preCheckPrompt = `
+    try {
+        // First, check if this is actually an incident question
+        const preCheckPrompt = `
 You are a Kala Pola assistant. 
 
 Analyze the user's message and determine if it's asking about an incident that needs response guidance.
@@ -203,18 +225,18 @@ Examples of non-incidents: greetings, general questions about Kala Pola, how are
 If it's NOT an incident question, be friendly and helpful. Mention that you're here to help analyze incidents and provide response guidance for the Kala Pola art fair.
 `.trim();
 
-    const preCheck = await callGeminiJSON(preCheckPrompt, incidentDescription);
+        const preCheck = await callGeminiJSON(preCheckPrompt, incidentDescription);
 
-    // If not an incident, return the general response
-    if (!preCheck.isIncident) {
-        return {
-            isGeneralQuery: true,
-            message: preCheck.generalResponse
-        };
-    }
+        // If not an incident, return the general response
+        if (!preCheck.isIncident) {
+            return {
+                isGeneralQuery: true,
+                message: preCheck.generalResponse
+            };
+        }
 
-    // Otherwise, proceed with incident classification
-    const systemPrompt = `
+        // Otherwise, proceed with incident classification
+        const systemPrompt = `
 You are an incident response advisor for Kala Pola art fair.
 
 Your task is to analyze the incident and provide ONE IMMEDIATE, FLEXIBLE, and ACTIONABLE message that tells them exactly what to do.
@@ -249,6 +271,19 @@ ${JSON.stringify(TABLE_2, null, 2)}
 Remember: Provide ONE response that's immediate, flexible, and situation-specific. Don't just copy table text.
 `.trim();
 
-    const result = await callGeminiJSON(systemPrompt, incidentDescription);
-    return result;
+        const result = await callGeminiJSON(systemPrompt, incidentDescription);
+        return result;
+    } catch (error) {
+        // Re-throw with user-friendly message if it's already a friendly error
+        if (error.message && (
+            error.message.includes("having trouble processing") ||
+            error.message.includes("Rate limit") ||
+            error.message.includes("Missing VITE_GEMINI_API_KEY")
+        )) {
+            throw error;
+        }
+        
+        // For other errors, provide a generic user-friendly message
+        throw new Error("I encountered an issue while analyzing your request. Please try again or rephrase your question.");
+    }
 }
