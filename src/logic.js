@@ -176,79 +176,42 @@ async function callGeminiJSON(systemPrompt, userPrompt) {
     const data = await response.json();
     const responseText = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
-    if (!responseText) {
-        throw new Error("No response received from Gemini API");
-    }
-
-    return JSON.parse(responseText);
+    // Clean response if it contains markdown markers
+    const cleanedText = responseText.replace(/```json|```/g, "").trim();
+    return JSON.parse(cleanedText);
 }
 
 // --- Main Analysis Function ---
 export async function analyzeIncident(incidentDescription) {
-    // First, check if this is actually an incident question
-    const preCheckPrompt = `
-You are a Kala Pola assistant. 
+    const singlePrompt = `
+You are a Kala Pola assistant and incident advisor.
 
-Analyze the user's message and determine if it's asking about an incident that needs response guidance.
+TASK:
+1. Determine if the user's message is an incident (complaints, conflicts, safety, operational issues) or a general query (greetings, info).
+2. If it's a GENERAL QUERY: Return a friendly, helpful conversational message. Mention you help analyze incidents at Kala Pola.
+3. If it's an INCIDENT: 
+   - Assess likelihood and impact (Low/Medium/High) using internal knowledge of event guidelines.
+   - Provide ONE IMMEDIATE, FLEXIBLE, and ACTIONABLE message (2-4 sentences) telling them exactly what to do.
 
-Return JSON in this format:
+REFERENCE (Internal only):
+Table 1 (Likelihood/Impact): ${JSON.stringify(TABLE_1)}
+Table 2 (Response Guidelines): ${JSON.stringify(TABLE_2)}
+
+RETURN JSON FORMAT:
 {
-  "isIncident": true/false,
-  "generalResponse": "if not an incident, provide a helpful conversational response here. Otherwise leave empty."
+  "isGeneralQuery": boolean,
+  "likelihood": "Low/Medium/High" (only if incident),
+  "impact": "Low/Medium/High" (only if incident),
+  "message": "The final response message (general or incident-specific)"
 }
-
-Examples of incidents: artist complaints, conflicts, safety issues, social media problems, operational issues
-Examples of non-incidents: greetings, general questions about Kala Pola, how are you, what can you do, etc.
-
-If it's NOT an incident question, be friendly and helpful. Mention that you're here to help analyze incidents and provide response guidance for the Kala Pola art fair.
 `.trim();
 
-    const preCheck = await callGeminiJSON(preCheckPrompt, incidentDescription);
+    const result = await callGeminiJSON(singlePrompt, incidentDescription);
 
-    // If not an incident, return the general response
-    if (!preCheck.isIncident) {
-        return {
-            isGeneralQuery: true,
-            message: preCheck.generalResponse
-        };
-    }
-
-    // Otherwise, proceed with incident classification
-    const systemPrompt = `
-You are an incident response advisor for Kala Pola art fair.
-
-Your task is to analyze the incident and provide ONE IMMEDIATE, FLEXIBLE, and ACTIONABLE message that tells them exactly what to do.
-
-CONTEXT: You have access to scenario classification tables (Table 1) and response guidelines (Table 2) as background knowledge. Use these internally to assess the situation's likelihood and impact, but DO NOT simply quote them.
-
-INSTRUCTIONS:
-1. Analyze the incident description
-2. Assess the severity (likelihood and impact)
-3. Generate ONE SINGLE UNIFIED MESSAGE that:
-   - Tells them EXACTLY what to do right now
-   - Is SPECIFIC to this exact situation - not generic
-   - Is natural and conversational - not bureaucratic
-   - Is concise but complete (2-4 sentences)
-   - Combines WHY and HOW in one cohesive response
-
-Return your response in this JSON format:
-{
-  "likelihood": "Low/Medium/High",
-  "impact": "Low/Medium/High",
-  "message": "One single unified response telling them exactly what to do in this situation"
-}
-
-REFERENCE TABLES (use as background knowledge only):
-
-TABLE 1 - SCENARIO CLASSIFICATION:
-${JSON.stringify(TABLE_1, null, 2)}
-
-TABLE 2 - RESPONSE GUIDELINES:
-${JSON.stringify(TABLE_2, null, 2)}
-
-Remember: Provide ONE response that's immediate, flexible, and situation-specific. Don't just copy table text.
-`.trim();
-
-    const result = await callGeminiJSON(systemPrompt, incidentDescription);
-    return result;
+    // Normalize response for App.jsx compatibility
+    return {
+        ...result,
+        // Ensure legacy field isGeneralQuery is respected if AI uses isIncident logic
+        isGeneralQuery: result.isGeneralQuery ?? !result.likelihood
+    };
 }

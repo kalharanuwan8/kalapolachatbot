@@ -153,8 +153,9 @@ export default function App() {
               </svg>
             </button>
           </div>
-          <p className="text-xs text-gray-500 mt-2 text-center">
-            Press Enter to send, Shift+Enter for new line
+          
+          <p className="text-[12px] text-gray-400 mt-1 text-center font-medium">
+            Developed by HTTech@hardtalk(pvt)LTD
           </p>
         </div>
       </div>
